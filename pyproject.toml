@@ -1,9 +1,16 @@
 [project]
 name = "geo-picture"
 version = "0.1.0"
-description = "Add your description here"
+description = "图片GPS信息添加工具"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "pywebview>=6.1",
+    "pillow>=10.0.0",
+    "pillow_heif>=0.14.0",
+    "exifread>=3.0.0",
+    "piexif>=1.1.3",
 ]
+
+[tool.setuptools]
+packages = ["geo_picture"]

@@ -1,134 +1,205 @@
 import webview
-import json
+from geo_picture.geo_processor import GeoProcessor
 import os
-from datetime import datetime
-from pathlib import Path
 
-class GeoPictureApp:
-    def __init__(self):
-        self.data_file = Path("geo_data.json")
-        self.images_dir = Path("images")
-        self.images_dir.mkdir(exist_ok=True)
-        
-        # 加载现有数据
-        self.geo_data = self.load_geo_data()
+class Api:
+    """提供给前端调用的API类"""
     
-    def load_geo_data(self):
-        """加载地理数据"""
-        if self.data_file.exists():
-            try:
-                with open(self.data_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except Exception as e:
-                print(f"加载数据失败: {e}")
-                return {"images": [], "metadata": {"created": datetime.now().isoformat()}}
-        else:
-            return {"images": [], "metadata": {"created": datetime.now().isoformat()}}
-    
-    def save_geo_data(self, data):
-        """保存地理数据"""
+    def get_gps_info(self, file_path):
+        """获取图片的GPS信息"""
         try:
-            # 更新元数据
-            data["metadata"] = {
-                "last_modified": datetime.now().isoformat(),
-                "version": "1.0"
-            }
-            
-            with open(self.data_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            
-            # 更新内存中的数据
-            self.geo_data = data
-            
-            return {"success": True, "message": "数据保存成功"}
-        except Exception as e:
-            return {"success": False, "message": f"数据保存失败: {str(e)}"}
-    
-    def save_geo_data_api(self, geo_data):
-        """API: 保存地理数据"""
-        print(f"接收到地理数据: {len(geo_data.get('images', []))} 张图片")
-        return self.save_geo_data(geo_data)
-    
-    def load_images_api(self):
-        """API: 加载图片数据"""
-        return {
-            "success": True,
-            "data": self.geo_data.get("images", []),
-            "total": len(self.geo_data.get("images", []))
-        }
-    
-    def export_data_api(self, format_type="json"):
-        """API: 导出数据"""
-        try:
-            if format_type == "json":
-                export_file = f"geo_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                with open(export_file, 'w', encoding='utf-8') as f:
-                    json.dump(self.geo_data, f, ensure_ascii=False, indent=2)
-                
+            gps_info = GeoProcessor.get_gps_info(file_path)
+            if gps_info:
                 return {
-                    "success": True,
-                    "message": f"数据已导出到 {export_file}",
-                    "file": export_file
+                    'success': True,
+                    'latitude': gps_info[0],
+                    'longitude': gps_info[1]
                 }
             else:
-                return {"success": False, "message": "不支持的导出格式"}
+                return {
+                    'success': True,
+                    'latitude': None,
+                    'longitude': None
+                }
         except Exception as e:
-            return {"success": False, "message": f"导出失败: {str(e)}"}
+            return {
+                'success': False,
+                'error': str(e)
+            }
     
-    def clear_data_api(self):
-        """API: 清除所有数据"""
+    def select_file(self):
+        """打开文件选择对话框，选择单个图片文件"""
         try:
-            self.geo_data = {"images": [], "metadata": {"created": datetime.now().isoformat()}}
+            # 使用pywebview的window.create_file_dialog方法选择文件
+            # 注意：在pywebview中，create_file_dialog是window对象的方法
+            # 我们需要获取当前窗口对象
+            import tkinter as tk
+            from tkinter import filedialog
             
-            if self.data_file.exists():
-                self.data_file.unlink()
+            # 创建一个隐藏的Tkinter根窗口
+            root = tk.Tk()
+            root.withdraw()
             
-            return {"success": True, "message": "所有数据已清除"}
+            # 打开文件选择对话框
+            file_path = filedialog.askopenfilename(
+                title="选择图片文件",
+                filetypes=[("Image Files", "*.jpg;*.jpeg;*.avif;*.heic;*.heif")]
+            )
+            
+            # 销毁Tkinter根窗口
+            root.destroy()
+            
+            if file_path:
+                return {
+                    'success': True,
+                    'file_path': file_path
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': '未选择文件'
+                }
         except Exception as e:
-            return {"success": False, "message": f"清除失败: {str(e)}"}
+            return {
+                'success': False,
+                'error': str(e)
+            }
     
-    def get_status_api(self):
-        """API: 获取应用状态"""
-        return {
-            "images_count": len(self.geo_data.get("images", [])),
-            "last_modified": self.geo_data.get("metadata", {}).get("last_modified", "从未修改"),
-            "data_file": str(self.data_file.absolute()) if self.data_file.exists() else None,
-            "app_version": "1.0"
-        }
+    def select_multiple_files(self):
+        """打开文件选择对话框，选择多个图片文件"""
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            
+            # 创建一个隐藏的Tkinter根窗口
+            root = tk.Tk()
+            root.withdraw()
+            
+            # 打开文件选择对话框，支持多选
+            file_paths = filedialog.askopenfilenames(
+                title="选择图片文件",
+                filetypes=[("Image Files", "*.jpg;*.jpeg;*.avif;*.heic;*.heif")]
+            )
+            
+            # 销毁Tkinter根窗口
+            root.destroy()
+            
+            if file_paths:
+                return {
+                    'success': True,
+                    'file_paths': list(file_paths)
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': '未选择文件'
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def get_image_data(self, file_path):
+        """读取图片数据并转换为base64格式"""
+        try:
+            import base64
+            from PIL import Image
+            import io
+            
+            # 打开图片
+            image = Image.open(file_path)
+            
+            # 将图片转换为base64格式
+            buffered = io.BytesIO()
+            image.save(buffered, format=image.format or 'JPEG')
+            img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+            
+            # 返回base64数据
+            return {
+                'success': True,
+                'image_data': f'data:image/{image.format.lower() or "jpeg"};base64,{img_str}'
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def process_image(self, file_path, latitude, longitude, overwrite=False):
+        """处理单个图片，添加GPS信息"""
+        try:
+            # 调用GeoProcessor处理图片
+            success = GeoProcessor.process_image(file_path, latitude, longitude, overwrite=overwrite)
+            
+            if success:
+                # 生成输出文件路径
+                if overwrite:
+                    output_path = file_path
+                else:
+                    dirname, basename = os.path.split(file_path)
+                    name, ext = os.path.splitext(basename)
+                    output_path = os.path.join(dirname, f"{name}_geo{ext}")
+                
+                return {
+                    'success': True,
+                    'output_path': output_path
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': '处理图片失败'
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def process_multiple_images(self, file_paths, latitude, longitude, overwrite=False):
+        """批量处理图片，添加GPS信息"""
+        try:
+            results = []
+            for file_path in file_paths:
+                # 调用process_image处理单个图片
+                result = self.process_image(file_path, latitude, longitude, overwrite)
+                results.append({
+                    'file_path': file_path,
+                    'success': result['success'],
+                    'output_path': result.get('output_path'),
+                    'error': result.get('error')
+                })
+            
+            return {
+                'success': True,
+                'results': results
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
 
 def main():
-    # 创建应用实例
-    app = GeoPictureApp()
+    """应用入口"""
+    # 创建API实例
+    api = Api()
     
-    # 创建API对象
-    api = {
-        "save_geo_data": app.save_geo_data_api,
-        "load_images": app.load_images_api,
-        "export_data": app.export_data_api,
-        "clear_data": app.clear_data_api,
-        "get_status": app.get_status_api
-    }
+    # 获取当前目录下的index.html路径
+    html_path = os.path.join(os.path.dirname(__file__), 'index.html')
     
-    # 创建窗口
+    # 创建webview窗口
     window = webview.create_window(
-        '图片地理位置信息编辑工具',
-        'frontend/index.html',
+        title='图片GPS信息添加工具',
+        url=html_path,
         width=1200,
-        height=800,
+        height=980,
         resizable=True,
-        text_select=False,
         js_api=api
     )
-    
-    # 窗口事件处理
-    def on_loaded():
-        print("应用已加载")
-        # 可以在这里执行初始化操作
-    
-    window.events.loaded += on_loaded
     
     # 启动应用
     webview.start(debug=True)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

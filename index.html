@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片GPS信息添加工具</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        success: '#10b981',
+                        error: '#ef4444',
+                        info: '#3b82f6',
+                        light: '#f8fafc',
+                        dark: '#1e293b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            }
+            .hover-lift {
+                transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+            .hover-lift:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+        }
+    </style>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-green-50 min-h-screen font-sans text-gray-800 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+        <header class="text-center mb-4">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">图片GPS信息添加工具</h1>
+            <p class="text-gray-600 text-sm">轻松为您的图片添加GPS地理位置信息</p>
+        </header>
+        
+        <main class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <!-- 左侧：图片选择和预览 -->
+            <section class="bg-white rounded-xl card-shadow hover-lift p-4 transition-all duration-300">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    1. 选择图片
+                </h2>
+                <div class="flex flex-wrap gap-3 mb-4">
+                    <button onclick="selectImage()" class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5">
+                        <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        选择单张图片
+                    </button>
+                    <button onclick="selectMultipleFiles()" class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5">
+                        <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        批量选择图片
+                    </button>
+                </div>
+                <div id="fileListContainer" class="hidden">
+                    <div class="bg-gray-50 px-4 py-3 rounded-t-lg font-medium text-gray-700 border-b border-gray-200">
+                        已选择图片列表 (<span id="fileCount">0</span> 张)
+                    </div>
+                    <div id="fileList" class="max-h-48 overflow-y-auto border border-gray-200 rounded-b-lg bg-white"></div>
+                </div>
+                <div id="imagePreviewContainer" class="hidden mt-4">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <img id="imagePreview" class="max-w-full max-h-64 mx-auto rounded-lg shadow-md object-contain" alt="图片预览">
+                        <p id="imageInfo" class="text-center text-gray-600 mt-3 text-sm"></p>
+                        <div id="gpsInfo" class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100 hidden">
+                            <h3 class="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                现有GPS信息
+                            </h3>
+                            <p id="existingGps" class="text-primary font-medium"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="progress-container mt-4 hidden" id="progressContainer">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                        <div id="progressFill" class="bg-primary h-2.5 rounded-full transition-all duration-300"></div>
+                    </div>
+                    <div id="progressText" class="text-center text-sm text-gray-600"></div>
+                </div>
+            </section>
+            
+            <!-- 右侧：GPS信息输入 -->
+            <section class="bg-white rounded-xl card-shadow hover-lift p-6 transition-all duration-300">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    2. 设置GPS信息
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="space-y-2">
+                        <label for="latitude" class="block text-sm font-medium text-gray-700">纬度 (如: 39.9042)</label>
+                        <input type="number" id="latitude" step="0.0001" placeholder="请输入纬度" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 shadow-sm">
+                    </div>
+                    <div class="space-y-2">
+                        <label for="longitude" class="block text-sm font-medium text-gray-700">经度 (如: 116.4074)</label>
+                        <input type="number" id="longitude" step="0.0001" placeholder="请输入经度" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 shadow-sm">
+                    </div>
+                </div>
+                
+                <h2 class="text-xl font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"></path></svg>
+                    3. 或在地图上选择位置
+                </h2>
+                <div id="map" class="w-full h-64 sm:h-72 rounded-lg shadow-md mb-3"></div>
+                <p class="text-center text-gray-600 text-xs">点击地图选择位置，坐标将自动填充到输入框</p>
+            </section>
+        </main>
+        
+        <!-- 底部：操作按钮 -->
+        <section class="bg-white rounded-xl card-shadow hover-lift p-4 transition-all duration-300">
+            <div class="mb-4 text-center">
+                <label class="inline-flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="overwriteOriginal" class="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded transition-all duration-200">
+                    <span class="text-gray-700 font-medium text-sm">覆盖原图（不勾选则生成新文件）</span>
+                </label>
+            </div>
+            <div class="flex flex-wrap justify-center gap-3">
+                <button onclick="addGeoTag()" class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    添加GPS信息
+                </button>
+                <button onclick="addGeoTagToAll()" id="batchButton" class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 flex items-center gap-2 text-sm hidden">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    批量添加GPS信息
+                </button>
+                <button onclick="resetForm()" class="bg-secondary hover:bg-secondary/90 text-white font-medium py-2 px-5 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 flex items-center gap-2 text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    重置
+                </button>
+            </div>
+            <div id="statusMessage" class="mt-3 py-2 px-3 rounded-lg font-medium text-center hidden text-sm"></div>
+        </section>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // 全局变量
+        let map;
+        let marker;
+        let currentFilePath = null;
+        let selectedFiles = []; // 存储选中的文件列表
+        let selectedFileIndex = -1; // 当前选中的文件索引
+        
+        function initMap() {
+            try {
+                // 检查Leaflet是否加载成功
+                if (typeof L === 'undefined') {
+                    showStatus('地图库加载失败，请检查网络连接', 'error');
+                    return;
+                }
+                
+                map = L.map('map').setView([39.9042, 116.4074], 13);
+                
+                // 地图加载事件
+                map.on('load', function() {
+                    showStatus('地图加载成功，点击地图选择位置', 'info');
+                });
+                
+                map.on('error', function() {
+                    showStatus('地图加载失败，请检查网络连接', 'error');
+                });
+                
+                // 主要瓦片源：高德地图
+                const amapLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+                    subdomains: ['1', '2', '3', '4'],
+                    attribution: '© 高德地图',
+                    maxZoom: 19
+                });
+                
+                // 备用瓦片源：OpenStreetMap
+                const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    maxZoom: 19
+                });
+                
+                // 使用高德地图作为主要瓦片源
+                amapLayer.addTo(map);
+                
+                // 添加地图点击事件
+                map.on('click', function(e) {
+                    const lat = e.latlng.lat;
+                    const lng = e.latlng.lng;
+                    
+                    // 更新输入框
+                    document.getElementById('latitude').value = lat.toFixed(6);
+                    document.getElementById('longitude').value = lng.toFixed(6);
+                    
+                    // 更新标记
+                    if (marker) {
+                        marker.setLatLng(e.latlng);
+                    } else {
+                        marker = L.marker(e.latlng).addTo(map);
+                    }
+                    
+                    marker.bindPopup(`坐标: ${lat.toFixed(6)}, ${lng.toFixed(6)}`).openPopup();
+                });
+                
+            } catch (error) {
+                showStatus(`地图初始化失败: ${error.message}`, 'error');
+                // 显示一个简单的替代界面
+                document.getElementById('map').innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; background-color: #f5f5f5; color: #666; text-align: center;">
+                        <div>
+                            <p>地图加载失败，请尝试以下方式：</p>
+                            <ul style="text-align: left; margin: 10px 0; padding-left: 20px;">
+                                <li>检查网络连接</li>
+                                <li>手动输入经纬度</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // 选择单张图片函数
+        function selectImage() {
+            try {
+                // 调用后端API打开文件选择对话框
+                window.pywebview.api.select_file().then(function(result) {
+                    if (result.success && result.file_path) {
+                        // 清空当前选中的文件列表
+                        selectedFiles = [result.file_path];
+                        selectedFileIndex = 0;
+                        
+                        // 渲染文件列表
+                        renderFileList();
+                        
+                        // 加载选中的图片
+                        loadImage(result.file_path);
+                    } else {
+                        showStatus(`选择文件失败: ${result.error}`, 'error');
+                    }
+                }).catch(function(error) {
+                    showStatus(`选择文件出错: ${error}`, 'error');
+                });
+            } catch (error) {
+                showStatus(`选择文件异常: ${error.message}`, 'error');
+            }
+        }
+        
+        // 批量选择图片函数
+        function selectMultipleFiles() {
+            try {
+                // 调用后端API打开文件选择对话框，支持多选
+                window.pywebview.api.select_multiple_files().then(function(result) {
+                    if (result.success && result.file_paths && result.file_paths.length > 0) {
+                        // 更新选中的文件列表
+                        selectedFiles = result.file_paths;
+                        selectedFileIndex = 0;
+                        
+                        // 渲染文件列表
+                        renderFileList();
+                        
+                        // 加载第一张图片
+                        loadImage(result.file_paths[0]);
+                    } else {
+                        showStatus(`选择文件失败: ${result.error}`, 'error');
+                    }
+                }).catch(function(error) {
+                    showStatus(`选择文件出错: ${error}`, 'error');
+                });
+            } catch (error) {
+                showStatus(`选择文件异常: ${error.message}`, 'error');
+            }
+        }
+        
+        // 渲染文件列表
+        function renderFileList() {
+            const fileListEl = document.getElementById('fileList');
+            const fileCountEl = document.getElementById('fileCount');
+            const fileListContainerEl = document.getElementById('fileListContainer');
+            const batchButtonEl = document.getElementById('batchButton');
+            
+            // 更新文件数量
+            fileCountEl.textContent = selectedFiles.length;
+            
+            // 清空文件列表
+            fileListEl.innerHTML = '';
+            
+            // 渲染每个文件项
+            selectedFiles.forEach(function(filePath, index) {
+                const fileName = filePath.split('\\').pop().split('/').pop();
+                const fileItemEl = document.createElement('div');
+                fileItemEl.className = `px-4 py-3 border-b border-gray-200 cursor-pointer transition-all duration-200 hover:bg-blue-50 ${index === selectedFileIndex ? 'bg-blue-100 border-l-4 border-primary font-medium' : 'bg-white'}`;
+                fileItemEl.textContent = fileName;
+                fileItemEl.onclick = function() {
+                    // 切换选中状态
+                    selectedFileIndex = index;
+                    
+                    // 重新渲染文件列表
+                    renderFileList();
+                    
+                    // 加载选中的图片
+                    loadImage(filePath);
+                };
+                fileListEl.appendChild(fileItemEl);
+            });
+            
+            // 显示文件列表
+            fileListContainerEl.classList.remove('hidden');
+            
+            // 如果选中了多个文件，显示批量处理按钮
+            if (selectedFiles.length > 1) {
+                batchButtonEl.classList.remove('hidden');
+            } else {
+                batchButtonEl.classList.add('hidden');
+            }
+        }
+        
+        // 加载图片函数
+        function loadImage(filePath) {
+            try {
+                // 保存当前文件路径到全局变量
+                currentFilePath = filePath;
+                
+                // 获取文件名
+                const fileName = filePath.split('\\').pop().split('/').pop();
+                
+                // 使用pywebview的API读取图片数据
+                window.pywebview.api.get_image_data(filePath).then(function(result) {
+                    if (result.success && result.image_data) {
+                        // 显示图片预览
+                        const img = document.getElementById('imagePreview');
+                        img.onload = function() {
+                            // 图片加载成功
+                            document.getElementById('imagePreviewContainer').classList.remove('hidden');
+                            document.getElementById('imageInfo').textContent = `文件: ${fileName} | 尺寸: ${img.naturalWidth}x${img.naturalHeight}`;
+                            
+                            // 获取并显示GPS信息
+                            getExistingGpsInfo(filePath);
+                        };
+                        
+                        img.onerror = function() {
+                            showStatus('图片加载失败，请尝试其他图片', 'error');
+                        };
+                        
+                        img.src = result.image_data;
+                    } else {
+                        showStatus(`读取图片失败: ${result.error}`, 'error');
+                    }
+                }).catch(function(error) {
+                    showStatus(`读取图片出错: ${error}`, 'error');
+                });
+            } catch (error) {
+                showStatus(`加载图片异常: ${error.message}`, 'error');
+            }
+        }
+        
+        // 添加GPS信息到当前图片
+        function addGeoTag() {
+            const latitude = parseFloat(document.getElementById('latitude').value);
+            const longitude = parseFloat(document.getElementById('longitude').value);
+            const overwrite = document.getElementById('overwriteOriginal').checked;
+            
+            if (!currentFilePath) {
+                showStatus('请先选择一张图片', 'error');
+                return;
+            }
+            
+            if (isNaN(latitude) || isNaN(longitude)) {
+                showStatus('请输入有效的经纬度', 'error');
+                return;
+            }
+            
+            if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+                showStatus('经纬度超出有效范围', 'error');
+                return;
+            }
+            
+            showStatus('正在处理图片...', 'info');
+            
+            // 调用Python后端处理
+            window.pywebview.api.process_image(
+                currentFilePath,
+                latitude,
+                longitude,
+                overwrite
+            ).then(function(result) {
+                if (result.success) {
+                    showStatus(`GPS信息添加成功！文件已保存为: ${result.output_path}`, 'success');
+                } else {
+                    showStatus(`处理失败: ${result.error}`, 'error');
+                }
+            }).catch(function(error) {
+                showStatus(`处理出错: ${error}`, 'error');
+            });
+        }
+        
+        // 批量添加GPS信息到所有选中图片
+        function addGeoTagToAll() {
+            const latitude = parseFloat(document.getElementById('latitude').value);
+            const longitude = parseFloat(document.getElementById('longitude').value);
+            const overwrite = document.getElementById('overwriteOriginal').checked;
+            
+            if (selectedFiles.length === 0) {
+                showStatus('请先选择图片', 'error');
+                return;
+            }
+            
+            if (isNaN(latitude) || isNaN(longitude)) {
+                showStatus('请输入有效的经纬度', 'error');
+                return;
+            }
+            
+            if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+                showStatus('经纬度超出有效范围', 'error');
+                return;
+            }
+            
+            // 显示进度条
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const statusMessage = document.getElementById('statusMessage');
+            
+            progressContainer.classList.remove('hidden');
+            progressFill.style.width = '0%';
+            progressText.textContent = `正在处理 0/${selectedFiles.length} 张图片...`;
+            statusMessage.classList.add('hidden');
+            
+            // 调用Python后端批量处理
+            window.pywebview.api.process_multiple_images(
+                selectedFiles,
+                latitude,
+                longitude,
+                overwrite
+            ).then(function(result) {
+                if (result.success) {
+                    // 计算成功和失败的数量
+                    const successCount = result.results.filter(r => r.success).length;
+                    const failCount = result.results.filter(r => !r.success).length;
+                    
+                    // 显示结果
+                    if (failCount === 0) {
+                        showStatus(`所有 ${selectedFiles.length} 张图片处理成功！`, 'success');
+                    } else {
+                        showStatus(`${successCount} 张图片处理成功，${failCount} 张图片处理失败`, 'info');
+                    }
+                } else {
+                    showStatus(`批量处理失败: ${result.error}`, 'error');
+                }
+                
+                // 隐藏进度条
+                progressContainer.classList.add('hidden');
+            }).catch(function(error) {
+                showStatus(`批量处理出错: ${error}`, 'error');
+                progressContainer.classList.add('hidden');
+            });
+        }
+        
+        // 重置表单
+        function resetForm() {
+            // 重置全局变量
+            currentFilePath = null;
+            selectedFiles = [];
+            selectedFileIndex = -1;
+            
+            // 重置界面
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+            document.getElementById('fileListContainer').classList.add('hidden');
+            document.getElementById('latitude').value = '';
+            document.getElementById('longitude').value = '';
+            document.getElementById('statusMessage').classList.add('hidden');
+            document.getElementById('gpsInfo').classList.add('hidden');
+            document.getElementById('batchButton').classList.add('hidden');
+            document.getElementById('progressContainer').classList.add('hidden');
+            
+            // 清空文件列表
+            document.getElementById('fileList').innerHTML = '';
+            document.getElementById('fileCount').textContent = '0';
+            
+            // 重置地图标记
+            if (marker) {
+                map.removeLayer(marker);
+                marker = null;
+            }
+        }
+        
+        // 获取并显示图片现有GPS信息
+        function getExistingGpsInfo(filePath) {
+            try {
+                if (!filePath) {
+                    showStatus('无法获取文件路径', 'error');
+                    return;
+                }
+                
+                window.pywebview.api.get_gps_info(filePath).then(function(result) {
+                    if (result.success) {
+                        const gpsInfoDiv = document.getElementById('gpsInfo');
+                        const existingGpsEl = document.getElementById('existingGps');
+                        
+                        if (result.latitude !== null && result.longitude !== null) {
+                            // 显示现有GPS信息
+                            existingGpsEl.textContent = `纬度: ${result.latitude.toFixed(6)}, 经度: ${result.longitude.toFixed(6)}`;
+                            gpsInfoDiv.classList.remove('hidden');
+                            
+                            // 将现有GPS信息填充到输入框
+                            document.getElementById('latitude').value = result.latitude.toFixed(6);
+                            document.getElementById('longitude').value = result.longitude.toFixed(6);
+                            
+                            // 在地图上显示现有位置
+                            if (map) {
+                                const latLng = [result.latitude, result.longitude];
+                                map.setView(latLng, 13);
+                                
+                                if (marker) {
+                                    marker.setLatLng(latLng);
+                                } else {
+                                    marker = L.marker(latLng).addTo(map);
+                                }
+                                
+                                marker.bindPopup(`现有坐标: ${result.latitude.toFixed(6)}, ${result.longitude.toFixed(6)}`).openPopup();
+                            }
+                        } else {
+                            // 隐藏GPS信息区域
+                            gpsInfoDiv.classList.add('hidden');
+                        }
+                    } else {
+                        showStatus(`获取GPS信息失败: ${result.error}`, 'error');
+                    }
+                }).catch(function(error) {
+                    showStatus(`获取GPS信息出错: ${error}`, 'error');
+                });
+            } catch (error) {
+                showStatus(`获取GPS信息异常: ${error.message}`, 'error');
+            }
+        }
+        
+
+        
+        // 显示状态消息
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            
+            // 移除所有状态类
+            statusEl.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'border-green-200', 
+                                    'bg-red-100', 'text-red-800', 'border-red-200', 
+                                    'bg-blue-100', 'text-blue-800', 'border-blue-200');
+            
+            // 添加对应状态的类
+            if (type === 'success') {
+                statusEl.classList.add('bg-green-100', 'text-green-800', 'border-green-200');
+            } else if (type === 'error') {
+                statusEl.classList.add('bg-red-100', 'text-red-800', 'border-red-200');
+            } else if (type === 'info') {
+                statusEl.classList.add('bg-blue-100', 'text-blue-800', 'border-blue-200');
+            }
+            
+            // 显示状态消息
+            statusEl.classList.remove('hidden');
+        }
+        
+        // 页面加载完成后初始化地图
+        window.onload = initMap;
+    </script>
+</body>
+</html>
