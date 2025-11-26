@@ -1,6 +1,8 @@
 import webview
 from geo_picture.geo_processor import GeoProcessor
 import os
+from dotenv import load_dotenv
+load_dotenv()  # 加载.env文件中的环境变量
 
 class Api:
     """提供给前端调用的API类"""
@@ -165,6 +167,52 @@ class Api:
                 'success': True,
                 'results': results
             }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def search_address(self, address):
+        """调用地址查询API获取经纬度"""
+        try:
+            import os
+            import requests
+            
+            # 从环境变量获取API配置
+            api_id = os.environ.get('API_ID', '')
+            api_key = os.environ.get('API_KEY', '')
+            
+            if not api_id or not api_key:
+                return {
+                    'success': False,
+                    'error': 'API配置未找到，请检查环境变量'
+                }
+            
+            # 调用地址查询API
+            api_url = 'https://cn.apihz.cn/api/other/jwjuhe.php'
+            params = {
+                'id': api_id,
+                'key': api_key,
+                'address': address
+            }
+            
+            response = requests.get(api_url, params=params)
+            data = response.json()
+            
+            if data.get('code') == 200:
+                return {
+                    'success': True,
+                    'latitude': float(data.get('lat')),
+                    'longitude': float(data.get('lng')),
+                    'score': data.get('score'),
+                    'level': data.get('level')
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': data.get('msg', '查询失败')
+                }
         except Exception as e:
             return {
                 'success': False,

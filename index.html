@@ -73,21 +73,41 @@
                     </button>
                 </div>
                 <div id="fileListContainer" class="hidden">
-                    <div class="bg-gray-50 px-4 py-3 rounded-t-lg font-medium text-gray-700 border-b border-gray-200">
-                        已选择图片列表 (<span id="fileCount">0</span> 张)
+                    <div class="bg-gray-50 px-3 py-2 rounded-t-lg font-medium text-gray-700 border-b border-gray-200 text-sm flex items-center justify-between">
+                        <span>已选择图片列表 (<span id="fileCount">0</span> 张)</span>
+                        <div class="flex gap-2">
+                            <button onclick="removeSelectedFile()" class="text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded transition-colors duration-200">
+                                移除选中
+                            </button>
+                            <button onclick="removeAllFiles()" class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded transition-colors duration-200">
+                                移除所有
+                            </button>
+                        </div>
                     </div>
-                    <div id="fileList" class="max-h-48 overflow-y-auto border border-gray-200 rounded-b-lg bg-white"></div>
+                    <div id="fileList" class="max-h-64 overflow-y-auto border border-gray-200 rounded-b-lg bg-white"></div>
                 </div>
-                <div id="imagePreviewContainer" class="hidden mt-4">
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <img id="imagePreview" class="max-w-full max-h-64 mx-auto rounded-lg shadow-md object-contain" alt="图片预览">
-                        <p id="imageInfo" class="text-center text-gray-600 mt-3 text-sm"></p>
-                        <div id="gpsInfo" class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100 hidden">
-                            <h3 class="text-lg font-medium text-gray-800 mb-2 flex items-center gap-2">
-                                <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                现有GPS信息
-                            </h3>
-                            <p id="existingGps" class="text-primary font-medium"></p>
+                <div id="imagePreviewContainer" class="hidden mt-3">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <!-- 左侧：图片预览（占3/4） -->
+                            <div class="md:col-span-3">
+                                <div class="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden shadow-md">
+                                    <img id="imagePreview" class="max-w-full max-h-full object-contain" alt="图片预览">
+                                </div>
+                                <p id="imageInfo" class="text-center text-gray-600 mt-2 text-xs"></p>
+                            </div>
+                            <!-- 右侧：现有GPS信息（占1/4） -->
+                            <div class="md:col-span-1">
+                                <div id="gpsInfo" class="h-full p-3 bg-blue-50 rounded-lg border border-blue-100 hidden flex flex-col">
+                                    <h3 class="text-base font-medium text-gray-800 mb-2 flex items-center gap-2">
+                                        <svg class="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                        现有GPS信息
+                                    </h3>
+                                    <div class="flex-grow flex items-center justify-center">
+                                        <p id="existingGps" class="text-primary text-sm text-center"></p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -120,8 +140,20 @@
                     <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"></path></svg>
                     3. 或在地图上选择位置
                 </h2>
-                <div id="map" class="w-full h-64 sm:h-72 rounded-lg shadow-md mb-3"></div>
+                <div id="map" class="w-full h-56 sm:h-64 rounded-lg shadow-md mb-3"></div>
                 <p class="text-center text-gray-600 text-xs">点击地图选择位置，坐标将自动填充到输入框</p>
+                
+                <!-- 4. 或输入地址查询 -->
+                <h2 class="text-xl font-semibold text-gray-800 mt-6 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    4. 或输入地址查询
+                </h2>
+                <div class="flex gap-2 mb-3">
+                    <input type="text" id="addressInput" placeholder="请输入地址，如：北京市海淀区上地十街10号" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 shadow-sm text-sm">
+                    <button onclick="searchAddress()" class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 text-sm">
+                        查询
+                    </button>
+                </div>
             </section>
         </main>
         
@@ -161,6 +193,93 @@
         let currentFilePath = null;
         let selectedFiles = []; // 存储选中的文件列表
         let selectedFileIndex = -1; // 当前选中的文件索引
+        
+        // 移除选中的图片
+        function removeSelectedFile() {
+            if (selectedFileIndex >= 0 && selectedFileIndex < selectedFiles.length) {
+                // 移除选中的文件
+                selectedFiles.splice(selectedFileIndex, 1);
+                
+                // 重置选中索引
+                if (selectedFiles.length === 0) {
+                    selectedFileIndex = -1;
+                    // 隐藏预览容器
+                    document.getElementById('imagePreviewContainer').classList.add('hidden');
+                } else {
+                    // 调整选中索引，确保不越界
+                    if (selectedFileIndex >= selectedFiles.length) {
+                        selectedFileIndex = selectedFiles.length - 1;
+                    }
+                    // 加载新选中的图片
+                    loadImage(selectedFiles[selectedFileIndex]);
+                }
+                
+                // 重新渲染文件列表
+                renderFileList();
+            }
+        }
+        
+        // 移除所有图片
+        function removeAllFiles() {
+            // 清空文件列表
+            selectedFiles = [];
+            selectedFileIndex = -1;
+            
+            // 隐藏预览容器和文件列表
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+            document.getElementById('fileListContainer').classList.add('hidden');
+            
+            // 重置批量按钮
+            document.getElementById('batchButton').classList.add('hidden');
+            
+            // 重新渲染文件列表
+            renderFileList();
+        }
+        
+        // 地址查询功能
+        function searchAddress() {
+            const address = document.getElementById('addressInput').value.trim();
+            
+            if (!address) {
+                showStatus('请输入地址', 'error');
+                return;
+            }
+            
+            // 调用后端API查询地址
+            window.pywebview.api.search_address(address).then(function(result) {
+                if (result.success) {
+                    // 查询成功
+                    const { latitude, longitude } = result;
+                    
+                    // 将经纬度填充到输入框
+                    document.getElementById('latitude').value = latitude;
+                    document.getElementById('longitude').value = longitude;
+                    
+                    // 在地图上显示该位置
+                    if (map) {
+                        const latLng = [latitude, longitude];
+                        map.setView(latLng, 13);
+                        
+                        if (marker) {
+                            marker.setLatLng(latLng);
+                        } else {
+                            marker = L.marker(latLng).addTo(map);
+                        }
+                        
+                        marker.bindPopup(`查询结果: ${address}<br>坐标: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`).openPopup();
+                    }
+                    
+                    // 显示成功消息
+                    showStatus('地址查询成功，经纬度已填充', 'success');
+                } else {
+                    // 查询失败
+                    showStatus(`地址查询失败: ${result.error}`, 'error');
+                }
+            }).catch(function(error) {
+                // 网络错误
+                showStatus(`地址查询出错: ${error}`, 'error');
+            });
+        }
         
         function initMap() {
             try {
@@ -302,8 +421,35 @@
             selectedFiles.forEach(function(filePath, index) {
                 const fileName = filePath.split('\\').pop().split('/').pop();
                 const fileItemEl = document.createElement('div');
-                fileItemEl.className = `px-4 py-3 border-b border-gray-200 cursor-pointer transition-all duration-200 hover:bg-blue-50 ${index === selectedFileIndex ? 'bg-blue-100 border-l-4 border-primary font-medium' : 'bg-white'}`;
-                fileItemEl.textContent = fileName;
+                fileItemEl.className = `px-3 py-2 border-b border-gray-200 cursor-pointer transition-all duration-200 hover:bg-blue-50 ${index === selectedFileIndex ? 'bg-blue-100 border-l-4 border-primary font-medium' : 'bg-white'} text-sm flex items-center justify-between`;
+                
+                // 创建文件名元素
+                const fileNameEl = document.createElement('span');
+                fileNameEl.className = 'truncate flex-1';
+                fileNameEl.textContent = fileName;
+                
+                // 创建GPS状态标志元素
+                const gpsStatusEl = document.createElement('span');
+                gpsStatusEl.className = 'ml-2 flex-shrink-0';
+                
+                // 获取文件的GPS信息
+                window.pywebview.api.get_gps_info(filePath).then(function(result) {
+                    if (result.success && result.latitude !== null && result.longitude !== null) {
+                        // 已有GPS信息，显示绿色图标
+                        gpsStatusEl.innerHTML = '<svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>';
+                    } else {
+                        // 没有GPS信息，显示灰色图标
+                        gpsStatusEl.innerHTML = '<svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>';
+                    }
+                }).catch(function(error) {
+                    // 出错时显示灰色图标
+                    gpsStatusEl.innerHTML = '<svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>';
+                });
+                
+                // 组装文件项
+                fileItemEl.appendChild(fileNameEl);
+                fileItemEl.appendChild(gpsStatusEl);
+                
                 fileItemEl.onclick = function() {
                     // 切换选中状态
                     selectedFileIndex = index;
@@ -314,6 +460,7 @@
                     // 加载选中的图片
                     loadImage(filePath);
                 };
+                
                 fileListEl.appendChild(fileItemEl);
             });
             
