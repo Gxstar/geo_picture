@@ -30,29 +30,23 @@ class Api:
     def select_file(self):
         """打开文件选择对话框，选择单个图片文件"""
         try:
-            # 使用pywebview的window.create_file_dialog方法选择文件
-            # 注意：在pywebview中，create_file_dialog是window对象的方法
-            # 我们需要获取当前窗口对象
-            import tkinter as tk
-            from tkinter import filedialog
+            # 使用pywebview自带的文件选择功能
+            import webview
             
-            # 创建一个隐藏的Tkinter根窗口
-            root = tk.Tk()
-            root.withdraw()
+            # 获取当前窗口对象
+            window = webview.active_window()
             
-            # 打开文件选择对话框
-            file_path = filedialog.askopenfilename(
-                title="选择图片文件",
-                filetypes=[("Image Files", "*.jpg;*.jpeg;*.avif;*.heic;*.heif")]
+            # 打开文件选择对话框 - pywebview 6.0 API
+            file_paths = window.create_file_dialog(
+                webview.FileDialog.OPEN,
+                file_types=('Image Files (*.jpg;*.jpeg;*.avif;*.heic;*.heif)', ),
+                allow_multiple=False
             )
             
-            # 销毁Tkinter根窗口
-            root.destroy()
-            
-            if file_path:
+            if file_paths and len(file_paths) > 0:
                 return {
                     'success': True,
-                    'file_path': file_path
+                    'file_path': file_paths[0]
                 }
             else:
                 return {
@@ -68,26 +62,23 @@ class Api:
     def select_multiple_files(self):
         """打开文件选择对话框，选择多个图片文件"""
         try:
-            import tkinter as tk
-            from tkinter import filedialog
+            # 使用pywebview自带的文件选择功能，支持多选
+            import webview
             
-            # 创建一个隐藏的Tkinter根窗口
-            root = tk.Tk()
-            root.withdraw()
+            # 获取当前窗口对象
+            window = webview.active_window()
             
-            # 打开文件选择对话框，支持多选
-            file_paths = filedialog.askopenfilenames(
-                title="选择图片文件",
-                filetypes=[("Image Files", "*.jpg;*.jpeg;*.avif;*.heic;*.heif")]
+            # 打开文件选择对话框，支持多选 - pywebview 6.0 API
+            file_paths = window.create_file_dialog(
+                webview.FileDialog.OPEN,
+                file_types=('Image Files (*.jpg;*.jpeg;*.avif;*.heic;*.heif)', ),
+                allow_multiple=True
             )
             
-            # 销毁Tkinter根窗口
-            root.destroy()
-            
-            if file_paths:
+            if file_paths and len(file_paths) > 0:
                 return {
                     'success': True,
-                    'file_paths': list(file_paths)
+                    'file_paths': file_paths
                 }
             else:
                 return {
