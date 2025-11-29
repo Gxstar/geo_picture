@@ -34,58 +34,55 @@ class GeoProcessor:
             return None
     
     @staticmethod
+    def decimal_to_piexif_dms(decimal: float) -> tuple:
+        """将十进制经纬度转换为piexif期望的度分秒格式"""
+        degrees = int(decimal)
+        minutes_decimal = (decimal - degrees) * 60
+        minutes = int(minutes_decimal)
+        seconds = (minutes_decimal - minutes) * 60
+        # piexif期望的格式是 ((degrees, 1), (minutes, 1), (int(seconds * 100), 100))
+        return ((degrees, 1), (minutes, 1), (int(seconds * 100), 100))
+    
+    @staticmethod
+    def create_gps_exif_dict(lat: float, lon: float) -> dict:
+        """创建包含GPS信息的EXIF字典"""
+        # 确保经纬度是浮点数
+        lat = float(lat)
+        lon = float(lon)
+        
+        # 确定方向
+        lat_ref = 'N' if lat >= 0 else 'S'
+        lon_ref = 'E' if lon >= 0 else 'W'
+        
+        # 转换为绝对值
+        lat_abs = abs(lat)
+        lon_abs = abs(lon)
+        
+        # 转换为piexif期望的度分秒格式
+        lat_dms = GeoProcessor.decimal_to_piexif_dms(lat_abs)
+        lon_dms = GeoProcessor.decimal_to_piexif_dms(lon_abs)
+        
+        # 创建GPS EXIF数据
+        return {
+            piexif.GPSIFD.GPSLatitudeRef: lat_ref,
+            piexif.GPSIFD.GPSLatitude: lat_dms,
+            piexif.GPSIFD.GPSLongitudeRef: lon_ref,
+            piexif.GPSIFD.GPSLongitude: lon_dms,
+            piexif.GPSIFD.GPSAltitudeRef: 0,  # 海拔参考（0=海平面以上）
+            piexif.GPSIFD.GPSAltitude: (0, 1),  # 海拔
+        }
+    
+    @staticmethod
     def add_gps_to_image(image: Image.Image, lat: float, lon: float) -> Image.Image:
         """向图片添加GPS信息"""
         try:
-            # 确保经纬度是浮点数
-            lat = float(lat)
-            lon = float(lon)
-            
-            # 使用piexif库来处理EXIF数据
-            print("Using piexif to add GPS info")
-            
             # 获取原始EXIF数据
             exif_dict = {}
             if 'exif' in image.info:
-                try:
-                    exif_dict = piexif.load(image.info['exif'])
-                except Exception as e:
-                    print(f"Failed to load existing EXIF: {e}")
-            
-            # 转换经纬度为piexif期望的格式
-            def decimal_to_piexif_dms(decimal):
-                """将十进制转换为piexif期望的度分秒格式"""
-                degrees = int(decimal)
-                minutes_decimal = (decimal - degrees) * 60
-                minutes = int(minutes_decimal)
-                seconds = (minutes_decimal - minutes) * 60
-                
-                # piexif期望的格式是 ((degrees, 1), (minutes, 1), (int(seconds * 100), 100))
-                return ((degrees, 1), (minutes, 1), (int(seconds * 100), 100))
-            
-            # 确定方向
-            lat_ref = 'N' if lat >= 0 else 'S'
-            lon_ref = 'E' if lon >= 0 else 'W'
-            
-            # 转换为绝对值
-            lat_abs = abs(lat)
-            lon_abs = abs(lon)
-            
-            # 转换为piexif期望的度分秒格式
-            lat_dms = decimal_to_piexif_dms(lat_abs)
-            lon_dms = decimal_to_piexif_dms(lon_abs)
-            
-            print(f"GPS data: lat={lat_dms}, lat_ref={lat_ref}, lon={lon_dms}, lon_ref={lon_ref}")
+                exif_dict = piexif.load(image.info['exif'])
             
             # 创建GPS EXIF数据
-            gps_dict = {
-                piexif.GPSIFD.GPSLatitudeRef: lat_ref,
-                piexif.GPSIFD.GPSLatitude: lat_dms,
-                piexif.GPSIFD.GPSLongitudeRef: lon_ref,
-                piexif.GPSIFD.GPSLongitude: lon_dms,
-                piexif.GPSIFD.GPSAltitudeRef: 0,  # 海拔参考（0=海平面以上）
-                piexif.GPSIFD.GPSAltitude: (0, 1),  # 海拔
-            }
+            gps_dict = GeoProcessor.create_gps_exif_dict(lat, lon)
             
             # 将GPS数据添加到EXIF字典
             exif_dict['GPS'] = gps_dict
@@ -97,17 +94,14 @@ class GeoProcessor:
             new_image = image.copy()
             new_image.info['exif'] = exif_bytes
             
-            print(f"Successfully added GPS to image using piexif: lat={lat}, lon={lon}")
             return new_image
         except Exception as e:
             print(f"Failed to add GPS to image: {e}")
-            import traceback
-            traceback.print_exc()
             return image
     
     @staticmethod
     def save_image(image: Image.Image, input_path: str, output_path: Optional[str] = None, overwrite: bool = False) -> bool:
-        """保存图片，保留原始格式
+        """保存图片，保留原始格式和画质
         
         Args:
             image: PIL Image对象
@@ -132,22 +126,30 @@ class GeoProcessor:
             # 根据文件扩展名选择保存格式
             ext = os.path.splitext(output_path)[1].lower()
             
-            # 获取原始图片的格式
+            # 获取原始图片的格式和质量参数
             original_format = None
+            original_quality = None
             try:
                 with Image.open(input_path) as img:
                     original_format = img.format
+                    # 尝试获取原始图片的质量参数
+                    if hasattr(img, 'info') and 'quality' in img.info:
+                        original_quality = img.info['quality']
             except Exception as e:
-                print(f"Failed to get original image format: {e}")
+                print(f"Failed to get original image info: {e}")
             
-            # 保存图片，确保保留EXIF数据
+            # 保存图片，确保保留EXIF数据和原始画质
             save_kwargs = {}
             
-            # 对于JPEG格式，确保EXIF数据被正确保存
+            # 对于JPEG格式，确保EXIF数据被正确保存且保持原始画质
             if ext in ['.jpg', '.jpeg']:
                 if 'exif' in image.info:
                     save_kwargs['exif'] = image.info['exif']
-                image.save(output_path, format='JPEG', quality=95, **save_kwargs)
+                # 使用原始质量或最高质量，避免重新压缩
+                save_kwargs['quality'] = original_quality if original_quality is not None else 100
+                save_kwargs['optimize'] = True  # 优化压缩但不降低质量
+                save_kwargs['subsampling'] = 0  # 不进行子采样，保持最佳质量
+                image.save(output_path, format='JPEG', **save_kwargs)
             # 对于HEIC/HEIF格式
             elif ext in ['.heic', '.heif']:
                 # HEIC/HEIF格式的EXIF处理可能需要特殊处理
@@ -155,29 +157,44 @@ class GeoProcessor:
                 try:
                     if 'exif' in image.info:
                         save_kwargs['exif'] = image.info['exif']
+                    # 使用高质量参数
+                    save_kwargs['quality'] = 100
                     image.save(output_path, format='HEIC', **save_kwargs)
                 except Exception as heic_error:
                     print(f"Failed to save HEIC with EXIF: {heic_error}")
                     # 尝试不传递EXIF数据，某些HEIC编码器可能不支持EXIF
-                    image.save(output_path, format='HEIC')
+                    image.save(output_path, format='HEIC', quality=100)
             # 对于AVIF格式
             elif ext == '.avif':
                 # AVIF格式的EXIF处理可能需要特殊处理
                 try:
                     if 'exif' in image.info:
                         save_kwargs['exif'] = image.info['exif']
+                    # 使用高质量参数
+                    save_kwargs['quality'] = 100
                     image.save(output_path, format='AVIF', **save_kwargs)
                 except Exception as avif_error:
                     print(f"Failed to save AVIF with EXIF: {avif_error}")
                     # 尝试不传递EXIF数据
-                    image.save(output_path, format='AVIF')
+                    image.save(output_path, format='AVIF', quality=100)
+            # 对于PNG格式，使用无损保存
+            elif ext == '.png':
+                if 'exif' in image.info:
+                    save_kwargs['exif'] = image.info['exif']
+                # PNG是无损格式，直接保存
+                image.save(output_path, format='PNG', **save_kwargs)
             # 对于其他格式
             else:
                 # 使用原始格式或默认格式
                 save_format = original_format or image.format or 'PNG'
                 if 'exif' in image.info:
                     save_kwargs['exif'] = image.info['exif']
-                image.save(output_path, format=save_format, **save_kwargs)
+                # 对于无损格式直接保存，有损格式使用高质量
+                if save_format in ['PNG', 'BMP', 'TIFF']:
+                    image.save(output_path, format=save_format, **save_kwargs)
+                else:
+                    save_kwargs['quality'] = original_quality if original_quality is not None else 100
+                    image.save(output_path, format=save_format, **save_kwargs)
             
             # 验证保存的图片是否包含GPS信息
             try:
@@ -274,23 +291,86 @@ class GeoProcessor:
             lat = float(lat)
             lon = float(lon)
             
-            # 读取图片
-            image = GeoProcessor.read_image(file_path)
-            if image is None:
-                print(f"Failed to read image: {file_path}")
-                return False
+            # 确定最终输出路径
+            final_output_path = output_path
+            if final_output_path is None:
+                if overwrite:
+                    final_output_path = file_path
+                else:
+                    # 如果没有指定输出路径，在原文件名后添加"_geo"后缀
+                    dirname, basename = os.path.split(file_path)
+                    name, ext = os.path.splitext(basename)
+                    final_output_path = os.path.join(dirname, f"{name}_geo{ext}")
             
-            # 添加GPS信息
-            image_with_gps = GeoProcessor.add_gps_to_image(image, lat, lon)
+            # 如果不是覆盖原图，先复制原文件
+            if final_output_path != file_path:
+                import shutil
+                shutil.copy2(file_path, final_output_path)
             
-            # 保存图片
-            success = GeoProcessor.save_image(image_with_gps, file_path, output_path, overwrite)
-            if success:
-                print(f"Successfully saved image with GPS: {output_path or file_path}")
-            else:
-                print(f"Failed to save image: {output_path or file_path}")
-            
-            return success
+            # 直接使用piexif处理EXIF，避免重新保存图片导致画质损失
+            try:
+                # 加载原图片的EXIF数据
+                exif_dict = piexif.load(final_output_path)
+                
+                # 转换经纬度为piexif期望的格式
+                def decimal_to_piexif_dms(decimal):
+                    """将十进制转换为piexif期望的度分秒格式"""
+                    degrees = int(decimal)
+                    minutes_decimal = (decimal - degrees) * 60
+                    minutes = int(minutes_decimal)
+                    seconds = (minutes_decimal - minutes) * 60
+                    return ((degrees, 1), (minutes, 1), (int(seconds * 100), 100))
+                
+                # 确定方向
+                lat_ref = 'N' if lat >= 0 else 'S'
+                lon_ref = 'E' if lon >= 0 else 'W'
+                
+                # 转换为绝对值
+                lat_abs = abs(lat)
+                lon_abs = abs(lon)
+                
+                # 转换为piexif期望的度分秒格式
+                lat_dms = decimal_to_piexif_dms(lat_abs)
+                lon_dms = decimal_to_piexif_dms(lon_abs)
+                
+                # 创建GPS EXIF数据
+                gps_dict = {
+                    piexif.GPSIFD.GPSLatitudeRef: lat_ref,
+                    piexif.GPSIFD.GPSLatitude: lat_dms,
+                    piexif.GPSIFD.GPSLongitudeRef: lon_ref,
+                    piexif.GPSIFD.GPSLongitude: lon_dms,
+                    piexif.GPSIFD.GPSAltitudeRef: 0,  # 海拔参考（0=海平面以上）
+                    piexif.GPSIFD.GPSAltitude: (0, 1),  # 海拔
+                }
+                
+                # 将GPS数据添加到EXIF字典
+                exif_dict['GPS'] = gps_dict
+                
+                # 将EXIF字典转换为字节
+                exif_bytes = piexif.dump(exif_dict)
+                
+                # 直接插入EXIF数据到图片文件，不重新保存图片，避免画质损失
+                piexif.insert(exif_bytes, final_output_path)
+                
+                print(f"Successfully added GPS to image using piexif.insert: {final_output_path}")
+                return True
+            except Exception as piexif_error:
+                print(f"Failed to use piexif.insert, falling back to PIL save: {piexif_error}")
+                
+                # 回退到原来的PIL保存方式
+                image = GeoProcessor.read_image(file_path)
+                if image is None:
+                    print(f"Failed to read image: {file_path}")
+                    return False
+                
+                image_with_gps = GeoProcessor.add_gps_to_image(image, lat, lon)
+                success = GeoProcessor.save_image(image_with_gps, file_path, final_output_path, overwrite=True)
+                if success:
+                    print(f"Successfully saved image with GPS using fallback method: {final_output_path}")
+                else:
+                    print(f"Failed to save image using fallback method: {final_output_path}")
+                
+                return success
         except Exception as e:
             print(f"Failed to process image: {e}")
             import traceback

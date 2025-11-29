@@ -29,10 +29,9 @@ class Api:
                 'error': str(e)
             }
     
-    def select_file(self):
-        """打开文件选择对话框，选择单个图片文件"""
+    def _select_files(self, allow_multiple=False):
+        """打开文件选择对话框，选择图片文件"""
         try:
-            # 使用pywebview自带的文件选择功能
             import webview
             
             # 获取当前窗口对象
@@ -42,14 +41,16 @@ class Api:
             file_paths = window.create_file_dialog(
                 webview.FileDialog.OPEN,
                 file_types=('Image Files (*.jpg;*.jpeg;*.avif;*.heic;*.heif)', ),
-                allow_multiple=False
+                allow_multiple=allow_multiple
             )
             
             if file_paths and len(file_paths) > 0:
-                return {
-                    'success': True,
-                    'file_path': file_paths[0]
-                }
+                result = {'success': True}
+                if allow_multiple:
+                    result['file_paths'] = file_paths
+                else:
+                    result['file_path'] = file_paths[0]
+                return result
             else:
                 return {
                     'success': False,
@@ -61,37 +62,13 @@ class Api:
                 'error': str(e)
             }
     
+    def select_file(self):
+        """打开文件选择对话框，选择单个图片文件"""
+        return self._select_files(allow_multiple=False)
+    
     def select_multiple_files(self):
         """打开文件选择对话框，选择多个图片文件"""
-        try:
-            # 使用pywebview自带的文件选择功能，支持多选
-            import webview
-            
-            # 获取当前窗口对象
-            window = webview.active_window()
-            
-            # 打开文件选择对话框，支持多选 - pywebview 6.0 API
-            file_paths = window.create_file_dialog(
-                webview.FileDialog.OPEN,
-                file_types=('Image Files (*.jpg;*.jpeg;*.avif;*.heic;*.heif)', ),
-                allow_multiple=True
-            )
-            
-            if file_paths and len(file_paths) > 0:
-                return {
-                    'success': True,
-                    'file_paths': file_paths
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': '未选择文件'
-                }
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+        return self._select_files(allow_multiple=True)
     
     def get_image_data(self, file_path):
         """读取图片数据并转换为base64格式"""
@@ -213,6 +190,72 @@ class Api:
                     'success': False,
                     'error': data.get('msg', '查询失败')
                 }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def get_settings(self):
+        """获取当前API设置"""
+        try:
+            import os
+            
+            # 从环境变量获取当前设置
+            api_id = os.environ.get('API_ID', '')
+            api_key = os.environ.get('API_KEY', '')
+            
+            return {
+                'success': True,
+                'api_id': api_id,
+                'api_key': api_key
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def save_settings(self, api_id, api_key):
+        """保存API设置到.env文件"""
+        try:
+            import os
+            
+            # 获取.env文件路径
+            env_path = os.path.join(os.path.dirname(__file__), '.env')
+            
+            # 读取现有.env文件内容
+            env_content = ''
+            if os.path.exists(env_path):
+                with open(env_path, 'r', encoding='utf-8') as f:
+                    env_content = f.read()
+            
+            # 更新API_ID和API_KEY
+            import re
+            
+            # 替换或添加API_ID
+            if re.search(r'^API_ID=.*$', env_content, re.MULTILINE):
+                env_content = re.sub(r'^API_ID=.*$', f'API_ID={api_id}', env_content, flags=re.MULTILINE)
+            else:
+                env_content += f'\nAPI_ID={api_id}'
+            
+            # 替换或添加API_KEY
+            if re.search(r'^API_KEY=.*$', env_content, re.MULTILINE):
+                env_content = re.sub(r'^API_KEY=.*$', f'API_KEY={api_key}', env_content, flags=re.MULTILINE)
+            else:
+                env_content += f'\nAPI_KEY={api_key}'
+            
+            # 保存到.env文件
+            with open(env_path, 'w', encoding='utf-8') as f:
+                f.write(env_content)
+            
+            # 更新环境变量
+            os.environ['API_ID'] = api_id
+            os.environ['API_KEY'] = api_key
+            
+            return {
+                'success': True
+            }
         except Exception as e:
             return {
                 'success': False,
